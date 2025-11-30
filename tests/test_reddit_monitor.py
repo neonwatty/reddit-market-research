@@ -11,7 +11,7 @@ import pytest
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from reddit_monitor import check_relevance, output_results
+from reddit_monitor import check_relevance, load_keywords_from_file, output_results, truncate_text
 
 
 class TestCheckRelevance:
@@ -58,6 +58,7 @@ class TestOutputResults:
         return [
             {
                 "title": "Test Post 1",
+                "body": "This is the body of test post 1",
                 "subreddit": "weddingplanning",
                 "score": 100,
                 "comments": 50,
@@ -67,6 +68,7 @@ class TestOutputResults:
             },
             {
                 "title": "Test Post 2",
+                "body": "This is the body of test post 2",
                 "subreddit": "eventplanning",
                 "score": 200,
                 "comments": 75,
@@ -103,7 +105,7 @@ class TestOutputResults:
         output_results(sample_results, output_format="csv", output_file=str(output_file))
         assert output_file.exists()
         content = output_file.read_text()
-        assert "title,subreddit,score,comments,url,created,author" in content
+        assert "title,body,subreddit,score,comments,url,created,author" in content
         assert "Test Post 1" in content
 
     def test_json_output_to_file(
@@ -125,3 +127,65 @@ class TestOutputResults:
         assert "Found 2 relevant posts" in captured.out
         assert "Test Post 1" in captured.out
         assert "https://reddit.com/r/weddingplanning/test1" in captured.out
+
+    def test_text_output_includes_body(
+        self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Test that text output includes body field."""
+        output_results(sample_results, output_format="text")
+        captured = capsys.readouterr()
+        assert "Body: This is the body of test post 1" in captured.out
+
+
+class TestTruncateText:
+    """Tests for truncate_text function."""
+
+    def test_short_text_unchanged(self) -> None:
+        """Test that short text is not truncated."""
+        assert truncate_text("Hello world") == "Hello world"
+
+    def test_long_text_truncated(self) -> None:
+        """Test that long text is truncated with ellipsis."""
+        long_text = "x" * 250
+        result = truncate_text(long_text)
+        assert len(result) == 203  # 200 + "..."
+        assert result.endswith("...")
+
+    def test_exact_length_unchanged(self) -> None:
+        """Test that text at exact max length is not truncated."""
+        text = "x" * 200
+        assert truncate_text(text) == text
+
+    def test_empty_text(self) -> None:
+        """Test empty text returns empty string."""
+        assert truncate_text("") == ""
+
+    def test_custom_max_length(self) -> None:
+        """Test custom max length."""
+        result = truncate_text("Hello world", max_length=5)
+        assert result == "Hello..."
+
+
+class TestLoadKeywordsFromFile:
+    """Tests for load_keywords_from_file function."""
+
+    def test_load_keywords(self, tmp_path: Path) -> None:
+        """Test loading keywords from file."""
+        keywords_file = tmp_path / "keywords.txt"
+        keywords_file.write_text("keyword1\nkeyword2\nkeyword3\n")
+        result = load_keywords_from_file(str(keywords_file))
+        assert result == ["keyword1", "keyword2", "keyword3"]
+
+    def test_strips_whitespace(self, tmp_path: Path) -> None:
+        """Test that whitespace is stripped from keywords."""
+        keywords_file = tmp_path / "keywords.txt"
+        keywords_file.write_text("  keyword1  \n  keyword2  \n")
+        result = load_keywords_from_file(str(keywords_file))
+        assert result == ["keyword1", "keyword2"]
+
+    def test_skips_empty_lines(self, tmp_path: Path) -> None:
+        """Test that empty lines are skipped."""
+        keywords_file = tmp_path / "keywords.txt"
+        keywords_file.write_text("keyword1\n\n\nkeyword2\n")
+        result = load_keywords_from_file(str(keywords_file))
+        assert result == ["keyword1", "keyword2"]

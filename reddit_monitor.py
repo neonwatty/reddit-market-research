@@ -3,12 +3,11 @@
 Reddit Market Research Tool
 
 Usage:
-    python reddit_monitor.py search                          # Search with defaults
-    python reddit_monitor.py search --keywords "AI,startup"  # Custom keywords
-    python reddit_monitor.py search --subreddits "SaaS+startups" --limit 50
-    python reddit_monitor.py search --output results.csv     # Save to CSV
-    python reddit_monitor.py search --json                   # Output as JSON
-    python reddit_monitor.py monitor                         # Real-time monitoring
+    python reddit_monitor.py search --keywords "AI,startup" --subreddits "SaaS+startups"
+    python reddit_monitor.py search --keywords-file keywords.txt --subreddits "startups"
+    python reddit_monitor.py search --keywords "help,tool" -s "programming" --json
+    python reddit_monitor.py search --keywords "bug,issue" --output results.csv
+    python reddit_monitor.py monitor --keywords "help" --subreddits "webdev"
 """
 
 from __future__ import annotations
@@ -36,19 +35,22 @@ def get_reddit() -> Reddit:
     return _reddit
 
 
-# Default configuration
-DEFAULT_SUBREDDITS = "weddingplanning+eventplanning+wedding+WeddingPhotography"
-DEFAULT_KEYWORDS: list[str] = [
-    "seating chart",
-    "seating arrangement",
-    "table assignment",
-    "guest seating",
-    "seating plan",
-    "wedding seating",
-    "event seating",
-    "seat guests",
-    "table layout",
-]
+MAX_BODY_LENGTH = 200
+
+
+def truncate_text(text: str, max_length: int = MAX_BODY_LENGTH) -> str:
+    """Truncate text to max_length, adding ellipsis if truncated."""
+    if not text:
+        return ""
+    if len(text) <= max_length:
+        return text
+    return text[:max_length] + "..."
+
+
+def load_keywords_from_file(filepath: str) -> list[str]:
+    """Load keywords from a file, one per line."""
+    with open(filepath, encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip()]
 
 
 def check_relevance(text: str, keywords: list[str]) -> bool:
@@ -67,7 +69,7 @@ def search_reddit(
     """
     Search Reddit for posts matching keywords.
 
-    Returns list of dicts with: title, subreddit, score, comments, url, created, author
+    Returns list of dicts with: title, body, subreddit, score, comments, url, created, author
     """
     subreddit = get_reddit().subreddit(subreddits)
     results: list[dict[str, str | int]] = []
@@ -78,6 +80,7 @@ def search_reddit(
                 results.append(
                     {
                         "title": post.title,
+                        "body": truncate_text(post.selftext),
                         "subreddit": str(post.subreddit),
                         "score": post.score,
                         "comments": post.num_comments,
@@ -118,6 +121,7 @@ def monitor_reddit(subreddits: str, keywords: list[str]) -> None:
         if check_relevance(title, keywords) or check_relevance(selftext, keywords):
             result = {
                 "title": title,
+                "body": truncate_text(selftext),
                 "subreddit": str(submission.subreddit),
                 "score": submission.score,
                 "comments": submission.num_comments,
@@ -149,7 +153,7 @@ def output_results(
             print(output)
 
     elif output_format == "csv" or (output_file and output_file.endswith(".csv")):
-        fieldnames = ["title", "subreddit", "score", "comments", "url", "created", "author"]
+        fieldnames = ["title", "body", "subreddit", "score", "comments", "url", "created", "author"]
         if output_file:
             with open(output_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -166,6 +170,8 @@ def output_results(
         for r in results:
             print(f"[{r['score']} upvotes, {r['comments']} comments] r/{r['subreddit']}")
             print(f"  Title: {r['title']}")
+            if r.get("body"):
+                print(f"  Body: {r['body']}")
             print(f"  URL: {r['url']}")
             print(f"  Author: u/{r['author']}")
             print()
@@ -178,12 +184,11 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python reddit_monitor.py search
-  python reddit_monitor.py search --keywords "AI tool,productivity app"
-  python reddit_monitor.py search --subreddits "startups+SaaS" --time week
-  python reddit_monitor.py search --json --limit 10
-  python reddit_monitor.py search --output results.csv
-  python reddit_monitor.py monitor
+  python reddit_monitor.py search -s "startups+SaaS" -k "AI tool,help,recommendation"
+  python reddit_monitor.py search -s "webdev" --keywords-file keywords.txt --json
+  python reddit_monitor.py search -s "programming" -k "bug,issue" --time week --limit 50
+  python reddit_monitor.py search -s "fitness" -k "app,tracking" --output results.csv
+  python reddit_monitor.py monitor -s "startups" -k "looking for,need help"
         """,
     )
 
@@ -194,13 +199,17 @@ Examples:
     search_parser.add_argument(
         "--subreddits",
         "-s",
-        default=DEFAULT_SUBREDDITS,
-        help=f"Subreddits to search (plus-separated). Default: {DEFAULT_SUBREDDITS}",
+        required=True,
+        help="Subreddits to search (plus-separated). Example: 'startups+SaaS+indiehackers'",
     )
     search_parser.add_argument(
         "--keywords",
         "-k",
-        help="Keywords to search (comma-separated). Default: seating-related terms",
+        help="Keywords to search (comma-separated). Example: 'AI tool,automation,help'",
+    )
+    search_parser.add_argument(
+        "--keywords-file",
+        help="Load keywords from file (one per line)",
     )
     search_parser.add_argument(
         "--time",
@@ -239,13 +248,17 @@ Examples:
     monitor_parser.add_argument(
         "--subreddits",
         "-s",
-        default=DEFAULT_SUBREDDITS,
-        help=f"Subreddits to monitor. Default: {DEFAULT_SUBREDDITS}",
+        required=True,
+        help="Subreddits to monitor (plus-separated). Example: 'startups+SaaS'",
     )
     monitor_parser.add_argument(
         "--keywords",
         "-k",
-        help="Keywords to match (comma-separated). Default: seating-related terms",
+        help="Keywords to match (comma-separated). Example: 'help,looking for,recommendation'",
+    )
+    monitor_parser.add_argument(
+        "--keywords-file",
+        help="Load keywords from file (one per line)",
     )
 
     args = parser.parse_args()
@@ -254,11 +267,16 @@ Examples:
         parser.print_help()
         return 1
 
-    # Parse keywords
+    # Parse keywords from --keywords or --keywords-file
+    keywords: list[str] = []
+    if hasattr(args, "keywords_file") and args.keywords_file:
+        keywords = load_keywords_from_file(args.keywords_file)
     if hasattr(args, "keywords") and args.keywords:
-        keywords = [k.strip() for k in args.keywords.split(",")]
-    else:
-        keywords = DEFAULT_KEYWORDS
+        keywords.extend([k.strip() for k in args.keywords.split(",")])
+
+    if not keywords:
+        print("Error: Must provide --keywords or --keywords-file", file=sys.stderr)
+        return 1
 
     if args.command == "search":
         results = search_reddit(
