@@ -76,7 +76,9 @@ class TestOutputResults:
             },
         ]
 
-    def test_json_output(self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]) -> None:
+    def test_json_output(
+        self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test JSON output format."""
         output_results(sample_results, output_format="json")
         captured = capsys.readouterr()
@@ -84,14 +86,18 @@ class TestOutputResults:
         assert len(parsed) == 2
         assert parsed[0]["title"] == "Test Post 1"
 
-    def test_limit_results(self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]) -> None:
+    def test_limit_results(
+        self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test limiting results."""
         output_results(sample_results, output_format="json", limit=1)
         captured = capsys.readouterr()
         parsed = json.loads(captured.out)
         assert len(parsed) == 1
 
-    def test_csv_output_to_file(self, sample_results: list[dict[str, str | int]], tmp_path: Path) -> None:
+    def test_csv_output_to_file(
+        self, sample_results: list[dict[str, str | int]], tmp_path: Path
+    ) -> None:
         """Test CSV file output."""
         output_file = tmp_path / "test_results.csv"
         output_results(sample_results, output_format="csv", output_file=str(output_file))
@@ -100,7 +106,9 @@ class TestOutputResults:
         assert "title,subreddit,score,comments,url,created,author" in content
         assert "Test Post 1" in content
 
-    def test_json_output_to_file(self, sample_results: list[dict[str, str | int]], tmp_path: Path) -> None:
+    def test_json_output_to_file(
+        self, sample_results: list[dict[str, str | int]], tmp_path: Path
+    ) -> None:
         """Test JSON file output."""
         output_file = tmp_path / "test_results.json"
         output_results(sample_results, output_format="json", output_file=str(output_file))
@@ -108,7 +116,9 @@ class TestOutputResults:
         content = json.loads(output_file.read_text())
         assert len(content) == 2
 
-    def test_text_output(self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]) -> None:
+    def test_text_output(
+        self, sample_results: list[dict[str, str | int]], capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test text output format."""
         output_results(sample_results, output_format="text")
         captured = capsys.readouterr()

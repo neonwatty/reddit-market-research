@@ -25,7 +25,16 @@ import praw
 if TYPE_CHECKING:
     from praw.reddit import Reddit
 
-reddit: Reddit = praw.Reddit("market_research")
+_reddit: Reddit | None = None
+
+
+def get_reddit() -> Reddit:
+    """Get or create Reddit client (lazy initialization)."""
+    global _reddit
+    if _reddit is None:
+        _reddit = praw.Reddit("market_research")
+    return _reddit
+
 
 # Default configuration
 DEFAULT_SUBREDDITS = "weddingplanning+eventplanning+wedding+WeddingPhotography"
@@ -60,7 +69,7 @@ def search_reddit(
 
     Returns list of dicts with: title, subreddit, score, comments, url, created, author
     """
-    subreddit = reddit.subreddit(subreddits)
+    subreddit = get_reddit().subreddit(subreddits)
     results: list[dict[str, str | int]] = []
 
     for keyword in keywords:
@@ -100,7 +109,7 @@ def monitor_reddit(subreddits: str, keywords: list[str]) -> None:
     print(f"Monitoring r/{subreddits} for: {', '.join(keywords)}")
     print("-" * 60)
 
-    subreddit = reddit.subreddit(subreddits)
+    subreddit = get_reddit().subreddit(subreddits)
 
     for submission in subreddit.stream.submissions(skip_existing=True):
         title = submission.title
