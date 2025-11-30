@@ -2,12 +2,26 @@
 
 Search Reddit for potential users, pain points, and market opportunities for your projects.
 
-## Setup
+## Installation
 
 ```bash
-cd /Users/jeremywatt/Desktop/reddit-market-research
-source venv/bin/activate
+pip install reddit-market-research
 ```
+
+## Setup
+
+Create a `praw.ini` file in your working directory with your Reddit API credentials:
+
+```ini
+[market_research]
+client_id = YOUR_CLIENT_ID
+client_secret = YOUR_CLIENT_SECRET
+username = YOUR_USERNAME
+password = YOUR_PASSWORD
+user_agent = market_research by u/YOUR_USERNAME
+```
+
+Get credentials at https://www.reddit.com/prefs/apps (create a "script" app).
 
 ## Usage
 
@@ -15,25 +29,25 @@ source venv/bin/activate
 
 ```bash
 # Basic search (keywords and subreddits required)
-python reddit_monitor.py search -s "startups+SaaS" -k "AI tool,help,recommendation"
+reddit-market-research search -s "startups+SaaS" -k "AI tool,help,recommendation"
 
 # JSON output for programmatic use
-python reddit_monitor.py search -s "webdev" -k "bug,issue" --json
+reddit-market-research search -s "webdev" -k "bug,issue" --json
 
 # Save to CSV
-python reddit_monitor.py search -s "programming" -k "help,looking for" --output results.csv
+reddit-market-research search -s "programming" -k "help,looking for" --output results.csv
 
 # Time filters and limits
-python reddit_monitor.py search -s "fitness" -k "app,tracking" --time year --limit 50
+reddit-market-research search -s "fitness" -k "app,tracking" --time year --limit 50
 
 # Load keywords from file
-python reddit_monitor.py search -s "startups" --keywords-file keywords.txt --json
+reddit-market-research search -s "startups" --keywords-file keywords.txt --json
 ```
 
 ### Monitor New Posts (real-time)
 
 ```bash
-python reddit_monitor.py monitor -s "startups+SaaS" -k "looking for,need help"
+reddit-market-research monitor -s "startups+SaaS" -k "looking for,need help"
 ```
 
 ## Options
@@ -71,7 +85,7 @@ User: "Research market opportunities for https://github.com/neonwatty/seating-ar
 Claude Code:
   1. Fetches repo README via WebFetch
   2. Analyzes project → generates keywords + subreddits
-  3. Runs: python reddit_monitor.py search -s "..." -k "..." --json
+  3. Runs: reddit-market-research search -s "..." -k "..." --json
   4. Parses JSON results
   5. Summarizes opportunities for user
 ```
@@ -84,8 +98,10 @@ Example prompts:
 ## Development
 
 ```bash
-# Install dev dependencies
-pip install ruff pytest mypy vulture
+# Clone and install in development mode
+git clone https://github.com/neonwatty/reddit-market-research.git
+cd reddit-market-research
+pip install -e ".[dev]"
 
 # Run linting
 ruff check reddit_monitor.py
@@ -102,3 +118,7 @@ vulture reddit_monitor.py tests/
 # Run tests
 pytest tests/ -v
 ```
+
+## License
+
+MIT
